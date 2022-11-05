@@ -36,11 +36,16 @@ app.get('/', (request, response) => {
 //get questions
 app.get('/qa/questions/', (req, res) => {
   let count = req.query.count || 5;
-  pool.query(`select json_agg(questions) as results from (select id as question_id, body as question_body, date_written as question_date, asker_name, helpful as question_helpfulness, reported, (select json_agg(answers) from (select id as answer_id, body, date_written as date, answerer_name, helpful as helpfulness, (select array_agg(ph) from (select id, url from photos where answer_id = answers.id)ph ) as photos from answers where question_id = questions.id and reported = false ORDER BY id) answers ) as answers from questions where product_id = ${req.query.product_id} and reported = false order by id limit ${count}) as questions;`, (err, data) => {
+  pool.query(`select json_agg(questions) as results from (select id as question_id, body as question_body, date_written as question_date, asker_name, helpful as question_helpfulness, reported, (select json_agg(answers) from (select id as answer_id, body, date_written as date, answerer_name, helpful as helpfulness, (select json_agg(url) from photos where answer_id = answers.id) as photos from answers where question_id = questions.id and reported = false ORDER BY id) answers ) as answers from questions where product_id = ${req.query.product_id} and reported = false order by id limit ${count}) as questions;`, (err, data) => {
     if (err) {
       throw err;
     }
-    res.send(data.rows);
+    let results = {
+      product_id: req.query.product_id,
+      results: data.rows[0].results
+    };
+
+    res.send(results);
   });
 });
 
@@ -51,7 +56,13 @@ app.get('/qa/questions/:question_id/answers', (req, res) => {
     if (err) {
       throw err;
     }
-    res.send(data.rows);
+    let results = {
+      question: req.params.question_id,
+      page: 1,
+      count: count,
+      results: data.rows[0].results
+    };
+    res.send(results);
   });
 });
 
@@ -79,7 +90,7 @@ app.post('/qa/questions/:question_id/answers', (req, res) => {
 
   pool.query(`INSERT INTO answers (question_id, body, date_written, answerer_name, answerer_email, reported, helpful) VALUES (${req.params.question_id}, '${body}', '${date}', '${name}', '${email}', ${false}, ${Number(0)}) RETURNING id`)
    .then((data) => {
-     if ((photos.length !== undefined) && (photos.length > 0)) {
+     if ((Array.isArray(photos)) && (photos.length > 0)) {
        let promises = photos.map((photo) => (pool.query(`INSERT INTO photos (answer_id, url) VALUES (${data.rows[0].id}, '${photo}') RETURNING *`)));
        Promise.all(promises).then(() => { res.send(data.rows); }).catch((err) => { throw err })
      } else {
