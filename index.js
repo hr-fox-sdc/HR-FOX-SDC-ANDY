@@ -2,13 +2,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 const port = 3003;
+require('dotenv').config();
+
 
 const Pool = require('pg').Pool;
 const pool = new Pool({
-  user: 'andy',
-  host: 'localhost',
-  database: 'qa',
-  port: 5432,
+  user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT,
 });
 
 app.use(bodyParser.json())
@@ -34,9 +37,11 @@ app.get('/', (request, response) => {
 // });
 // SELECT * FROM questions WHERE product_id = ${req.query.product_id} ORDER BY id LIMIT
 //get questions
+
+
 app.get('/qa/questions/', (req, res) => {
   let count = req.query.count || 5;
-  pool.query(`select json_agg(questions) as results from (select id as question_id, body as question_body, date_written as question_date, asker_name, helpful as question_helpfulness, reported, (select json_agg(answers) from (select id as answer_id, body, date_written as date, answerer_name, helpful as helpfulness, (select json_agg(url) from photos where answer_id = answers.id) as photos from answers where question_id = questions.id and reported = false ORDER BY id) answers ) as answers from questions where product_id = ${req.query.product_id} and reported = false order by id limit ${count}) as questions;`, (err, data) => {
+  pool.query(`select json_agg(questions) as results from (select id as question_id, body as question_body, (TO_CHAR(TO_TIMESTAMP(date_written / 1000), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) as question_date, asker_name, helpful as question_helpfulness, reported, COALESCE(((select json_agg(answers) from (select id as answer_id, body, (TO_CHAR(TO_TIMESTAMP(date_written / 1000), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) as date, answerer_name, helpful as helpfulness, COALESCE(((select json_agg(url) from photos where answer_id = answers.id)), '[]'::json) as photos from answers where question_id = questions.id and reported = false ORDER BY id) answers )), '{}'::json) as answers from questions where product_id = ${req.query.product_id} and reported = false order by id limit ${count}) as questions;`, (err, data) => {
     if (err) {
       throw err;
     }
@@ -44,7 +49,6 @@ app.get('/qa/questions/', (req, res) => {
       product_id: req.query.product_id,
       results: data.rows[0].results
     };
-
     res.send(results);
   });
 });
@@ -52,7 +56,7 @@ app.get('/qa/questions/', (req, res) => {
 //get answers
 app.get('/qa/questions/:question_id/answers', (req, res) => {
   let count = req.query.count || 5;
-  pool.query(`select json_agg(answers) as results from (select id as answer_id, body, date_written as date, answerer_name, helpful as helpfulness, (select array_agg(ph) from (select id, url from photos where answer_id = answers.id)ph ) as photos from answers where question_id = ${req.params.question_id} and reported = false ORDER BY id LIMIT ${count}) as answers;`, (err, data) => {
+  pool.query(`select json_agg(answers) as results from (select id as answer_id, body, (TO_CHAR(TO_TIMESTAMP(date_written / 1000), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) as date, answerer_name, helpful as helpfulness, COALESCE(((select array_agg(ph) from (select id, url from photos where answer_id = answers.id)ph )), '{}') as photos  from answers where question_id = ${req.params.question_id} and reported = false ORDER BY id LIMIT ${count}) as answers;`, (err, data) => {
     if (err) {
       throw err;
     }

@@ -30,7 +30,7 @@ CREATE TABLE questions (
   id SERIAL,
   product_id INTEGER NOT NULL DEFAULT NULL,
   body TEXT NOT NULL DEFAULT NULL,
-  date_written TEXT NOT NULL DEFAULT NULL,
+  date_written BIGINT NOT NULL DEFAULT NULL,
   asker_name VARCHAR(60) NOT NULL DEFAULT NULL,
   asker_email VARCHAR(200) NOT NULL DEFAULT NULL,
   reported BOOLEAN NOT NULL DEFAULT false,
@@ -49,7 +49,7 @@ CREATE TABLE answers (
   id SERIAL,
   question_id INTEGER NOT NULL DEFAULT NULL references questions(id),
   body TEXT NOT NULL DEFAULT NULL,
-  date_written TEXT NULL DEFAULT NULL,
+  date_written BIGINT NULL DEFAULT NULL,
   answerer_name VARCHAR(60) NOT NULL DEFAULT NULL,
   answerer_email VARCHAR(200) NOT NULL DEFAULT NULL,
   reported BOOLEAN NOT NULL DEFAULT false,
@@ -81,6 +81,8 @@ CREATE INDEX photo_index ON photos (id);
 CREATE INDEX questionID_index ON answers (question_id);
 CREATE INDEX answerID_index ON photos (answer_id);
 CREATE INDEX productID_index ON questions (product_id);
+CREATE INDEX questReported_index ON questions (reported);
+CREATE INDEX ansReported_index ON answers (reported);
 
 -- ---
 -- Foreign Keys
